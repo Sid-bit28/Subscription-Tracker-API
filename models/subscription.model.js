@@ -76,7 +76,7 @@ const subscriptionSchema = new mongoose.Schema(
 );
 
 // Auto Calculate the renewal date if missing
-subscriptionSchema.pre('save', function () {
+subscriptionSchema.pre('save', function (next) {
   if (!this.renewalDate) {
     const renewalPeriods = {
       daily: 1,
