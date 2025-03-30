@@ -4,6 +4,8 @@ const { serve } = require('@upstash/workflow/express');
 import dayjs from 'dayjs';
 
 import Subscription from '../models/subscription.model.js';
+import { sendReminderEmail } from '../utils/send-email.js';
+import { now } from 'mongoose';
 
 const REMINDERS = [7, 5, 2, 1];
 
@@ -11,7 +13,7 @@ export const sendReminders = serve(async context => {
   const { subscriptionId } = context.requestPayload;
   const subscription = await fetchSubscription(context, subscriptionId);
 
-  if (!subscription || subscription.status !== active) {
+  if (!subscription || subscription.status !== 'active') {
     return;
   }
 
@@ -36,7 +38,14 @@ export const sendReminders = serve(async context => {
       );
     }
 
-    await triggerReminder(context, `Reminder ${daysBefore} days before`);
+    if (dayjs().isSame(reminderDate, 'day')) {
+      await triggerReminder(
+        context,
+        `${daysBefore} days before reminder`,
+        subscription
+      );
+    }
+    
   }
 });
 
@@ -51,9 +60,13 @@ const sleepUntillReminder = async (context, label, date) => {
   await context.sleepUntill(label, date.toDate());
 };
 
-const triggerReminder = async (context, label) => {
-  return await context.run(label, () => {
+const triggerReminder = async (context, label, subscription) => {
+  return await context.run(label, async () => {
     console.log(`Triggering ${label} reminder.`);
-    //Send email, SMS, push notification
+    await sendReminderEmail({
+      to: subscription.user.email,
+      type: label,
+      subscription,
+    });
   });
 };
